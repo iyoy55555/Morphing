@@ -61,8 +61,16 @@ int main() {
 	}
 	Mat result = morphing(backup1, backup2, 0.5);
 	imshow("result", result);
-	waitKey();
-	return 0;
+	if (cvWaitKey(33) == 27) {		//esc
+		return 0;
+	}
+	cvWaitKey();
+	cvWaitKey();
+	cvWaitKey();
+	cvWaitKey();
+	cvWaitKey();
+	cvWaitKey();
+	cvWaitKey();
 }
 
 void mouseCallback1(int event, int x, int y, int flags, void *param) {
@@ -97,6 +105,8 @@ void mouseCallback2(int event, int x, int y, int flags, void *param) {
 	}
 }
 
+float v_length;
+
 Mat morphing(Mat img1, Mat img2, float t) {
 	
 	for (int i = 0; i < min(pic1_lines.size(), pic2_lines.size()); ++i) {
@@ -107,36 +117,97 @@ Mat morphing(Mat img1, Mat img2, float t) {
 		line.second = p2;
 		result_lines.push_back(line);
 	}
+	Mat output1;
+	img1.copyTo(output1);
+	Mat output2;
+	img2.copyTo(output2);
 	//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv	pic1
 	
-	int height = img1.rows;
-	int width = img1.cols;
-	int ch = img1.channels();
-	for (int i = 0; i < height; ++i) {
-		for (int j = 0; j < width; ++j) {
-			for (int k = 0; k < ch; ++k) {
-				Point psum(0, 0);
-				float wsum = 0;
-				for (int l = 0; l < result_lines.size(); ++l) {
-					Point p_before = Transform(Point(i,j),pic1_lines[l],result_lines[l]);
-					float length = sqrt(pow(result_lines.at(l).first.x - result_lines.at(l).second.x, 2) + pow(result_lines.at(l).first.y - result_lines.at(l).second.y, 2));
-					float dist;
-					float weight = pow(pow(length, 2) / 1 + dist, 2);
-					//img1.at(height, width, ch);
-				}
+		int height = img1.rows;
+		int width = img1.cols;
+		int ch = img1.channels();
+		for (int i = 0; i < height; ++i) {
+			for (int j = 0; j < width; ++j) {
+				//for (int k = 0; k < 3; ++k) {
+					Point psum(0, 0);
+					
+					float wsum = 0;
+					for (int l = 0; l < result_lines.size(); ++l) {
+						Point p_before = Transform(Point(i, j), result_lines[l], pic1_lines[l]);
+						float length = sqrt(pow(result_lines.at(l).first.x - result_lines.at(l).second.x, 2) + pow(result_lines.at(l).first.y - result_lines.at(l).second.y, 2));
+						float dist = v_length;
+						float weight = pow(pow(length, 1) / (1 + dist), 2);
+						psum += p_before*weight;
+						wsum += weight;
+						//img1.at(height, width, ch);
+					}
+					psum /= wsum;
+					
+					if (psum.x >= height) {
+						psum.x = height - 1;
+					}
+					if (psum.x < 0) {
+						psum.x = 0;
+					}
+					if (psum.y >= width) {
+						psum.y = width - 1;
+					}
+					if (psum.y < 0) {
+						psum.y = 0;
+					}
+					//cout <<i << " " << j << endl;
+ 					output1.at<Vec<uchar, 3>>(i, j) = img1.at<Vec<uchar, 3>>(psum.x, psum.y);
+				//}
 			}
 		}
-	}
 	
 	//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^	pic1
 	//vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv	pic2
-
+	{
+		int height = img2.rows;
+		int width = img2.cols;
+		int ch = img2.channels();
+		for (int i = 0; i < height; ++i) {
+			for (int j = 0; j < width; ++j) {
+				//for (int k = 0; k < 2; ++k) {
+					Point psum(0, 0);
+					float wsum = 0;
+					for (int l = 0; l < result_lines.size(); ++l) {
+						Point p_before = Transform(Point(i, j), result_lines[l], pic2_lines[l]);
+						float length = sqrt(pow(result_lines.at(l).first.x - result_lines.at(l).second.x, 2) + pow(result_lines.at(l).first.y - result_lines.at(l).second.y, 2));
+						float dist = v_length;
+						float weight = pow(pow(length, 1) / 1 + dist, 2);
+						psum += p_before*weight;
+						wsum += weight;
+						//img1.at(height, width, ch);
+					}
+					psum /= wsum;
+					if (psum.x >= height) {
+						psum.x = height - 1;
+					}
+					if (psum.y < 0) {
+						psum.y = 0;
+					}
+					if (psum.y >= width) {
+						psum.y = width - 1;
+					}
+					if (psum.x < 0) {
+						psum.x = 0;
+					}
+					output2.at<Vec<uchar, 3>>(i, j) = img2.at<Vec<uchar, 3>>(psum.x, psum.y);
+					//cout << output2.at<uchar>(i, j, 0) << endl;
+				//}
+			}
+		}
+	}
 	//^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^				pic2
-
-	Mat result = img1 / 2 + img2 / 2;
+	//imshow("cc", output1);
+	//imshow("ww", output2);
+	Mat result = output1 / 2 + output2 / 2;
 	return result;
 }
 Point Transform(Point p, pair<Point, Point> L1, pair<Point, Point> L2) {
+	bool check_per=true;
 	//calculate u
 	pair<int, int> XP;
 	pair<int, int> QP;
@@ -153,17 +224,27 @@ Point Transform(Point p, pair<Point, Point> L1, pair<Point, Point> L2) {
 	if (Per_QP.first*XP.first + Per_QP.second*XP.second < 0) {
 		Per_QP.first = -Per_QP.first;
 		Per_QP.second= -Per_QP.second;
+		check_per = false;
 	}
 	float v= (XP.first*Per_QP.first + XP.second*Per_QP.second) /distQP;
-
+	v_length = v;
 	//calculate p'
 	pair<int, int> QP_result;
 	QP_result.first = L2.second.x - L2.first.x;
 	QP_result.second= L2.second.y - L2.first.y;
 	float distQP_result = sqrt(pow(QP_result.first, 2) + pow(QP_result.second, 2));
+	pair<int, int>Per_QP_result;
+	if (check_per) {
+		Per_QP_result.first = QP_result.second;
+		Per_QP_result.second = -QP_result.first;
+	}else{
+		Per_QP_result.first = -QP_result.second;
+		Per_QP_result.second = QP_result.first;
+	}
 	Point P_result;
-	P_result.x = L2.first.x + u*QP_result.first+v*QP_result.first/distQP_result;
-	P_result.y = L2.first.y + u*QP_result.second + v*QP_result.second/distQP_result;
+	P_result.x = L2.first.x + u*QP_result.first+v*Per_QP_result.first/distQP_result;
+	P_result.y = L2.first.y + u*QP_result.second + v*Per_QP_result.second/distQP_result;
+
 	return P_result;
 }
 
